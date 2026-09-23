@@ -1,0 +1,440 @@
+{
+ "clip": "-wZyZh0RMLo_90-150",
+ "round": 1,
+ "fps": 25.0,
+ "music": {
+  "bpm": 124.4,
+  "beat_strength": 0.525,
+  "beats_s": [
+   0.128,
+   0.61,
+   1.093,
+   1.575,
+   2.057,
+   2.539,
+   3.021,
+   3.504,
+   3.986,
+   4.468,
+   4.95,
+   5.433,
+   5.915,
+   6.397,
+   6.879,
+   7.361,
+   7.844,
+   8.326,
+   8.808,
+   9.29,
+   9.772,
+   10.255,
+   10.737,
+   11.219,
+   11.701,
+   12.184,
+   12.666,
+   13.148,
+   13.63,
+   14.112,
+   14.595,
+   15.077,
+   15.559,
+   16.041,
+   16.524,
+   17.006,
+   17.488,
+   17.97,
+   18.452,
+   18.935,
+   19.417,
+   19.899,
+   20.381,
+   20.864,
+   21.346,
+   21.828,
+   22.31,
+   22.792,
+   23.275,
+   23.757,
+   24.239,
+   24.721,
+   25.204,
+   25.686,
+   26.168,
+   26.65,
+   27.132,
+   27.615,
+   28.097,
+   28.579,
+   29.061,
+   29.543,
+   30.026,
+   30.508,
+   30.99,
+   31.472,
+   31.955,
+   32.437,
+   32.919,
+   33.401,
+   33.883,
+   34.366,
+   34.848,
+   35.33,
+   35.812,
+   36.295,
+   36.777,
+   37.259,
+   37.741,
+   38.223,
+   38.706,
+   39.188,
+   39.67,
+   40.152,
+   40.635,
+   41.117,
+   41.599,
+   42.081,
+   42.563,
+   43.046,
+   43.528,
+   44.01,
+   44.492,
+   44.975,
+   45.457,
+   45.939,
+   46.421,
+   46.903,
+   47.386,
+   47.868,
+   48.35,
+   48.832,
+   49.314,
+   49.797,
+   50.279,
+   50.761,
+   51.243,
+   51.726,
+   52.208,
+   52.69,
+   53.172,
+   53.654,
+   54.137,
+   54.619,
+   55.101,
+   55.583,
+   56.066,
+   56.548,
+   57.03,
+   57.512,
+   57.994,
+   58.477,
+   58.959,
+   59.441,
+   59.923
+  ]
+ },
+ "categories": {
+  "Variety": [
+   "pose_vocabulary",
+   "level_changes_per_10s"
+  ],
+  "Control & difficulty": [
+   "hold_time_s",
+   "inverted_pct",
+   "sustained_speed"
+  ]
+ },
+ "dancers": [
+  {
+   "name": "Kosto",
+   "start_s": 0.0,
+   "end_s": 27.88,
+   "usable_s": 23.8,
+   "metrics": {
+    "pose_vocabulary": 18.3,
+    "level_changes_per_10s": 2.95,
+    "holds": 0,
+    "hold_time_s": 0.0,
+    "longest_hold_s": 0,
+    "inverted_pct": 31.6,
+    "floor_pct": 58.6,
+    "sustained_speed": 2.44,
+    "on_beat_pct": 28.8,
+    "beat_percentile": 36.6
+   },
+   "beat": {
+    "on_beat_pct": 28.8,
+    "chance_pct": 29.3,
+    "percentile_vs_random": 36.6,
+    "accents": 52
+   },
+   "hold_spans_s": [],
+   "levels": [
+    [
+     0.68,
+     2.52,
+     "up"
+    ],
+    [
+     4.2,
+     4.76,
+     "up"
+    ],
+    [
+     4.8,
+     7.12,
+     "up"
+    ],
+    [
+     7.16,
+     8.96,
+     "up"
+    ],
+    [
+     11.96,
+     12.44,
+     "inverted"
+    ],
+    [
+     12.48,
+     13.2,
+     "inverted"
+    ],
+    [
+     13.52,
+     14.44,
+     "inverted"
+    ],
+    [
+     14.72,
+     15.32,
+     "inverted"
+    ],
+    [
+     15.84,
+     16.44,
+     "inverted"
+    ],
+    [
+     16.64,
+     17.4,
+     "inverted"
+    ],
+    [
+     17.72,
+     18.12,
+     "inverted"
+    ],
+    [
+     18.12,
+     18.56,
+     "floor"
+    ],
+    [
+     18.6,
+     19.6,
+     "floor"
+    ],
+    [
+     20.2,
+     21.12,
+     "floor"
+    ],
+    [
+     21.84,
+     22.56,
+     "inverted"
+    ],
+    [
+     22.68,
+     23.36,
+     "floor"
+    ],
+    [
+     24.68,
+     25.32,
+     "up"
+    ],
+    [
+     26.0,
+     26.48,
+     "floor"
+    ],
+    [
+     26.52,
+     27.2,
+     "floor"
+    ],
+    [
+     27.2,
+     27.88,
+     "up"
+    ]
+   ]
+  },
+  {
+   "name": "Jamal",
+   "start_s": 27.88,
+   "end_s": 60.0,
+   "usable_s": 27.4,
+   "metrics": {
+    "pose_vocabulary": 19.0,
+    "level_changes_per_10s": 2.56,
+    "holds": 0,
+    "hold_time_s": 0.0,
+    "longest_hold_s": 0,
+    "inverted_pct": 27.2,
+    "floor_pct": 56.9,
+    "sustained_speed": 3.67,
+    "on_beat_pct": 35.7,
+    "beat_percentile": 69.4
+   },
+   "beat": {
+    "on_beat_pct": 35.7,
+    "chance_pct": 28.9,
+    "percentile_vs_random": 69.4,
+    "accents": 56
+   },
+   "hold_spans_s": [],
+   "levels": [
+    [
+     28.08,
+     31.04,
+     "up"
+    ],
+    [
+     31.84,
+     35.12,
+     "up"
+    ],
+    [
+     35.24,
+     36.88,
+     "up"
+    ],
+    [
+     37.04,
+     37.6,
+     "up"
+    ],
+    [
+     39.12,
+     39.52,
+     "inverted"
+    ],
+    [
+     39.6,
+     40.04,
+     "inverted"
+    ],
+    [
+     41.0,
+     41.48,
+     "inverted"
+    ],
+    [
+     44.2,
+     44.64,
+     "floor"
+    ],
+    [
+     44.84,
+     45.44,
+     "floor"
+    ],
+    [
+     45.44,
+     46.0,
+     "inverted"
+    ],
+    [
+     46.72,
+     47.32,
+     "floor"
+    ],
+    [
+     47.48,
+     48.0,
+     "floor"
+    ],
+    [
+     48.32,
+     49.44,
+     "floor"
+    ],
+    [
+     49.72,
+     50.24,
+     "floor"
+    ],
+    [
+     51.24,
+     51.96,
+     "floor"
+    ],
+    [
+     52.44,
+     52.84,
+     "inverted"
+    ],
+    [
+     53.08,
+     53.6,
+     "inverted"
+    ],
+    [
+     54.24,
+     55.48,
+     "floor"
+    ],
+    [
+     58.04,
+     60.0,
+     "up"
+    ]
+   ]
+  }
+ ],
+ "scores": {
+  "Kosto": {
+   "Variety": 51.3,
+   "Control & difficulty": 47.9,
+   "Overall": 49.6
+  },
+  "Jamal": {
+   "Variety": 48.7,
+   "Control & difficulty": 52.1,
+   "Overall": 50.4
+  }
+ },
+ "predicted_winner": null,
+ "notes": [
+  "Musicality excluded: neither dancer's movement accents line up with the detected beat better than random offsets (needs >= 95th percentile).",
+  "Overall margin under 5 points: too close to call."
+ ],
+ "official": {
+  "battle": "Jamal vs Kosto",
+  "competition": "WDSF European Breaking Championship BBoy",
+  "year": "2021",
+  "stage": "5",
+  "battle_winner": "Kosto",
+  "judges": [
+   "Focus",
+   "Katsu",
+   "Admir",
+   "Skim",
+   "Yan"
+  ],
+  "votes": [
+   "Kosto",
+   "Kosto",
+   "Kosto",
+   "Kosto",
+   "Kosto"
+  ],
+  "tally": {
+   "Kosto": 5
+  },
+  "round_winner": "Kosto"
+ }
+}

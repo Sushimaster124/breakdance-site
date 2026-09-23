@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breaking Pose Viewer</title>
+<style>
+  :root { --bg:#111; --fg:#eee; --muted:#888; --line:#2a2a2a; --accent:#3ddc84; --bad:#ff5a5a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.4 -apple-system, system-ui, sans-serif; }
+  main { max-width:1280px; margin:0 auto; padding:16px; }
+  header { display:flex; justify-content:space-between; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:10px; }
+  h1 { font-size:16px; font-weight:600; margin:0; }
+  .stage { position:relative; background:#000; }
+  video, canvas.ov { display:block; width:100%; }
+  canvas.ov { position:absolute; inset:0; height:100%; pointer-events:none; }
+  .bar { display:flex; gap:18px; align-items:center; margin:10px 0; color:var(--muted); flex-wrap:wrap; }
+  label { cursor:pointer; user-select:none; }
+  #readout { font-variant-numeric:tabular-nums; color:var(--fg); }
+  #timeline { width:100%; height:48px; display:block; cursor:pointer; border-top:1px solid var(--line); }
+  #progress { margin:0 0 12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  #progress .track { height:4px; background:var(--line); margin-top:6px; }
+  #progress .fill { height:100%; background:var(--accent); width:0; transition:width .9s linear; }
+  table { border-collapse:collapse; margin-top:14px; font-variant-numeric:tabular-nums; }
+  td { padding:3px 18px 3px 0; border-bottom:1px solid var(--line); }
+  td:first-child { color:var(--muted); }
+  #round { margin-top:36px; }
+  #round h2 { font-size:16px; font-weight:600; margin:0 0 2px; }
+  #round .sub { color:var(--muted); margin:0 0 16px; }
+  .verdict { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1px; background:var(--line); border:1px solid var(--line); }
+  .verdict > div { background:var(--bg); padding:12px 14px; }
+  .verdict .k { color:var(--muted); font-size:12px; }
+  .verdict .v { font-size:18px; font-weight:600; margin-top:2px; }
+  .verdict .d { color:var(--muted); margin-top:2px; font-size:13px; }
+  table.h2h { width:100%; max-width:720px; }
+  table.h2h th { text-align:right; font-weight:600; padding:6px 0 6px 18px; border-bottom:1px solid var(--line); }
+  table.h2h th:first-child { text-align:left; padding-left:0; }
+  table.h2h td { text-align:right; padding:5px 0 5px 18px; }
+  table.h2h td:first-child { text-align:left; padding-left:0; }
+  table.h2h tr.cat td { color:var(--fg); font-weight:600; padding-top:16px; }
+  table.h2h td.win { color:var(--accent); }
+  table.h2h td.off { color:var(--muted); }
+  .seek { color:inherit; cursor:pointer; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+  .notes { color:var(--muted); max-width:720px; margin-top:14px; }
+  .notes p { margin:4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1><a href="home.html" style="color:var(--muted);text-decoration:none;font-weight:400">Videos</a> / <span id="title">Pose Viewer</span></h1><span id="readout"></span></header>
+  <div id="progress" hidden><span id="ptext">Checking pose run…</span><div class="track"><div class="fill" id="pfill"></div></div></div>
+  <div class="stage">
+    <video id="v" controls playsinline></video>
+    <canvas class="ov" id="ov"></canvas>
+  </div>
+  <div class="bar">
+    <label><input type="radio" name="mode" value="live" checked> Clip + live skeleton</label>
+    <label><input type="radio" name="mode" value="baked"> Rendered overlay mp4</label>
+    <label><input type="checkbox" id="labels"> Joint confidences</label>
+    <span>, / . step a frame</span>
+  </div>
+  <canvas id="timeline"></canvas>
+  <div class="bar"><span id="tlnote"></span></div>
+  <table id="stats"></table>
+  <section id="round" hidden></section>
+</main>
+<script>
+const clip = new URLSearchParams(location.search).get('clip') || '-wZyZh0RMLo_90-150';
+const v = document.getElementById('v'), ov = document.getElementById('ov'), ctx = ov.getContext('2d');
+const tl = document.getElementById('timeline'), tctx = tl.getContext('2d');
+const readout = document.getElementById('readout');
+let data = null, mode = 'live';
+
+const srcs = { live: `../data/clips/${clip}.mp4`, baked: `../outputs/${clip}_overlay.mp4` };
+v.src = srcs.live;
+// Cut clips aren't shared through git; without one, play the rendered skeleton video instead
+v.addEventListener('error', () => { if (mode === 'live') document.querySelector('input[name=mode][value=baked]').click(); });
+
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => {
+  const t = v.currentTime, playing = !v.paused;
+  mode = r.value; v.src = srcs[mode];
+  v.addEventListener('loadedmetadata', () => { v.currentTime = t; if (playing) v.play(); }, { once:true });
+  render();
+});
+document.getElementById('labels').onchange = render;
+
+// Live progress while pose.py runs. Prefer the progress JSON (every 10 frames);
+// fall back to the run log (every 100 frames) and extrapolate from its mtime.
+const nocache = () => `?_=${Date.now()}`;
+async function readProgress() {
+  let r = await fetch(`../outputs/${clip}_progress.json${nocache()}`);
+  if (r.ok) return { ...(await r.json()), at: Date.parse(r.headers.get('Last-Modified')) };
+  r = await fetch(`../outputs/pose_run.log${nocache()}`);
+  if (!r.ok) return null;
+  const at = Date.parse(r.headers.get('Last-Modified')), text = await r.text();
+  const m = [...text.matchAll(/(\d+)\/(\d+) frames\s+([\d.]+) fps/g)].pop();
+  const finished = /overlay: /.test(text), failed = /Traceback/.test(text);
+  if (!m) return { done: 0, total: 0, fps: 0, at, finished, failed };
+  return { done: +m[1], total: +m[2], fps: +m[3], at, finished, failed };
+}
+const fmt = s => s >= 60 ? `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`;
+async function pollProgress() {
+  const box = document.getElementById('progress'), text = document.getElementById('ptext'), fill = document.getElementById('pfill');
+  let p;
+  try { p = await readProgress(); } catch { p = null; }
+  if (p && p.finished) { box.hidden = true; return loadData(); }
+  box.hidden = false;
+  if (!p) text.textContent = 'No pose run found for this clip.';
+  else if (p.failed) text.textContent = 'Pose run failed. See outputs/pose_run.log.';
+  else if (!p.total) text.textContent = 'Pose run starting (loading models)…';
+  else {
+    const since = Math.max(0, (Date.now() - p.at) / 1000);
+    const est = Math.min(p.total - 1, Math.round(p.done + p.fps * since));
+    const left = (p.total - est) / (p.fps || 1);
+    text.textContent = `Running pose estimation: ~${est} / ${p.total} frames · ${p.fps} fps · about ${fmt(left)} left`;
+    fill.style.width = `${(100 * est / p.total).toFixed(1)}%`;
+  }
+  setTimeout(pollProgress, 1000);
+}
+pollProgress();
+
+const loadData = () => Promise.all([
+  fetch(`../data/poses/${clip}_scores.json${nocache()}`).then(r => r.json()),
+  fetch(`../data/poses/${clip}_summary.json${nocache()}`).then(r => r.json()),
+]).then(([d, s]) => {
+  data = d;
+  document.getElementById('title').textContent = clip;
+  const rows = [
+    ['Frames', `${s.frames} @ ${s.fps} fps`],
+    ['No detection', `${s.no_detection_pct}%  (${s.no_detection_frames})`],
+    ['Mean conf < 0.5', `${s.low_conf_pct}%  (${s.low_conf_frames})`],
+    ['Unusable total', `${s.bad_frames_pct}%`],
+    ['Mean conf (detected)', s.mean_conf_detected],
+  ];
+  document.getElementById('stats').innerHTML = rows.map(([k, x]) => `<tr><td>${k}</td><td>${x}</td></tr>`).join('');
+  drawTimeline(); render();
+  fetch(`../data/poses/${clip}_grade.json${nocache()}`).then(r => r.ok ? r.json() : null).then(g => g && renderRound(g));
+});
+
+const METRICS = {
+  'Variety': [['pose_vocabulary', 'Distinct poses', ''], ['level_changes_per_10s', 'Level changes per 10s', '']],
+  'Control & difficulty': [['hold_time_s', 'Freeze hold time', ' s'], ['inverted_pct', 'Time inverted', '%'],
+                           ['sustained_speed', 'Sustained speed', ' bl/s']],
+  'Musicality': [['beat_percentile', 'Accents on beat vs random', ' pct'], ['on_beat_pct', 'Accents within 70 ms of a beat', '%']],
+  'Context (not scored)': [['floor_pct', 'Time on floor', '%'], ['usable_s', 'Usable seconds', ' s']],
+};
+function renderRound(g) {
+  const el = document.getElementById('round'), [a, b] = g.dancers, o = g.official;
+  const sc = g.scores, counted = Object.keys(g.categories);
+  const tally = o ? Object.entries(o.tally).sort((x, y) => y[1] - x[1]) : [];
+  const judgesLine = o ? `${o.round_winner} ${tally.map(t => t[1]).join('–')}${tally.length === 1 ? '–0' : ''}` : 'n/a';
+  const rubric = g.predicted_winner ? `${g.predicted_winner}` : 'Too close to call';
+  const seek = d => `<span class="seek" data-t="${d.start_s}">${d.name}</span>`;
+  const val = (d, k) => k === 'usable_s' ? d.usable_s : d.metrics[k];
+  const row = (label, va, vb, unit, compare, off) => {
+    const better = compare && va !== vb && va != null && vb != null ? (va > vb ? 0 : 1) : -1;
+    const cell = (x, i) => `<td class="${off ? 'off' : better === i ? 'win' : ''}">${x == null ? '–' : x + unit}</td>`;
+    return `<tr><td>${label}</td>${cell(va, 0)}${cell(vb, 1)}</tr>`;
+  };
+  let rows = '';
+  for (const cat of counted) rows += row(`<b>${cat}</b>`, sc[a.name][cat], sc[b.name][cat], '', true).replace('<tr>', '<tr class="cat">');
+  rows += row('<b>Overall</b>', sc[a.name].Overall, sc[b.name].Overall, '', true).replace('<tr>', '<tr class="cat">');
+  for (const [cat, ms] of Object.entries(METRICS)) {
+    const off = cat === 'Musicality' && !counted.includes('Musicality');
+    rows += `<tr class="cat"><td colspan="3" style="text-align:left">${cat}${off ? ' <span style="color:var(--muted);font-weight:400">· not counted</span>' : ''}</td></tr>`;
+    for (const [k, label, unit] of ms) rows += row(label, val(a, k), val(b, k), unit, !cat.startsWith('Context'), off);
+  }
+  el.innerHTML = `
+    <h2>Round ${g.round} · ${a.name} vs ${b.name}</h2>
+    <p class="sub">${o ? `${o.competition} ${o.year} · battle won by ${o.battle_winner}` : ''} · music ~${g.music.bpm} BPM</p>
+    <div class="verdict">
+      <div><div class="k">Judges (official)</div><div class="v">${judgesLine}</div><div class="d">${o ? o.judges.map((j, i) => `${j}: ${o.votes[i]}`).join(' · ') : ''}</div></div>
+      <div><div class="k">Pose rubric (experimental)</div><div class="v">${rubric}</div><div class="d">${a.name} ${sc[a.name].Overall} · ${b.name} ${sc[b.name].Overall} (50 = even)</div></div>
+    </div>
+    <table class="h2h">
+      <tr><th></th><th>${seek(a)} <span style="color:var(--muted);font-weight:400">${a.start_s}–${a.end_s}s</span></th><th>${seek(b)} <span style="color:var(--muted);font-weight:400">${b.start_s}–${b.end_s}s</span></th></tr>
+      ${rows}
+    </table>
+    <div class="notes">
+      ${g.notes.map(n => `<p>${n}</p>`).join('')}
+      <p>Scores are each dancer's share of the pair on measured signals, not a trained model. Not measured: creativity, personality, performativity.</p>
+    </div>`;
+  el.hidden = false;
+  el.querySelectorAll('.seek').forEach(s => s.onclick = () => { v.currentTime = +s.dataset.t; v.play(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+}
+
+const frameIdx = t => Math.min(data.frames.length - 1, Math.max(0, Math.floor(t * data.fps + 1e-3)));
+
+function render() {
+  ov.width = ov.clientWidth * devicePixelRatio; ov.height = ov.clientHeight * devicePixelRatio;
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  if (!data) return;
+  const i = frameIdx(v.currentTime), f = data.frames[i];
+  readout.textContent = `frame ${i}  ·  ${f.t.toFixed(2)}s  ·  ` +
+    (f.turn ? `${f.turn}  ·  ` : '') + (f.detected ? `conf ${f.mean_conf.toFixed(2)}` : 'no dancer');
+  drawCursor(i);
+  if (mode !== 'live' || !f.detected) return;
+  const sx = ov.width / data.width, sy = ov.height / data.height, k = f.kpts, s = f.kpt_scores;
+  const lw = Math.max(2, 3 * sx);
+  ctx.strokeStyle = 'rgba(255,200,0,.9)'; ctx.lineWidth = lw * .6;
+  ctx.strokeRect(f.bbox[0] * sx, f.bbox[1] * sy, (f.bbox[2] - f.bbox[0]) * sx, (f.bbox[3] - f.bbox[1]) * sy);
+  ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.strokeStyle = '#3ddc84';
+  for (const [a, b] of data.skeleton) {
+    if (s[a] < .3 || s[b] < .3) continue;
+    ctx.beginPath(); ctx.moveTo(k[a][0] * sx, k[a][1] * sy); ctx.lineTo(k[b][0] * sx, k[b][1] * sy); ctx.stroke();
+  }
+  ctx.font = `${12 * devicePixelRatio}px -apple-system, system-ui`;
+  k.forEach((p, j) => {
+    if (s[j] < .3) return;
+    ctx.fillStyle = s[j] >= .5 ? '#3ddc84' : '#ff5a5a';
+    ctx.beginPath(); ctx.arc(p[0] * sx, p[1] * sy, lw * 1.6, 0, 7); ctx.fill();
+    if (document.getElementById('labels').checked) {
+      ctx.fillStyle = '#fff'; ctx.fillText(s[j].toFixed(2), p[0] * sx + 6, p[1] * sy - 6);
+    }
+  });
+}
+
+let tlBase = null;
+// Bar height = mean joint confidence. Color = tracked dancer (first to dance red, second blue,
+// matching the broadcast name plates). Gray = unsure: no dancer picked, confidence < 0.5,
+// or the picked person's clothes don't match whose turn it is.
+const DANCER_COLORS = ['#e5484d', '#3b82f6'], UNSURE = '#555';
+function drawTimeline() {
+  tl.width = tl.clientWidth * devicePixelRatio; tl.height = tl.clientHeight * devicePixelRatio;
+  const n = data.frames.length, W = tl.width, H = tl.height, bw = W / n;
+  const order = [...new Set(data.frames.map(f => f.turn).filter(Boolean))];
+  tctx.fillStyle = '#181818'; tctx.fillRect(0, 0, W, H);
+  data.frames.forEach((f, i) => {
+    const sure = f.detected && f.mean_conf >= .5 && f.matches_turn !== false && order.includes(f.turn);
+    tctx.fillStyle = sure ? DANCER_COLORS[order.indexOf(f.turn) % 2] : UNSURE;
+    const h = f.detected ? Math.max(2, f.mean_conf * H) : H;
+    tctx.fillRect(i * bw, H - h, Math.ceil(bw), h);
+  });
+  tctx.fillStyle = 'rgba(255,255,255,.25)'; tctx.fillRect(0, H * .5, W, 1);
+  tlBase = tctx.getImageData(0, 0, W, H);
+  document.getElementById('tlnote').innerHTML = 'Timeline: bar height = mean joint confidence. ' +
+    order.map((d, k) => `<span style="color:${DANCER_COLORS[k % 2]}">■</span> ${d}`).join(' &nbsp; ') +
+    ` &nbsp; <span style="color:${UNSURE}">■</span> unsure (no dancer, confidence below 0.5, or clothes don't match the turn). Click to seek.`;
+}
+function drawCursor(i) {
+  if (!tlBase) return;
+  tctx.putImageData(tlBase, 0, 0);
+  tctx.fillStyle = '#fff'; tctx.fillRect(i * tl.width / data.frames.length, 0, 2 * devicePixelRatio, tl.height);
+}
+tl.onclick = e => { if (data) v.currentTime = (e.offsetX / tl.clientWidth) * data.frames.length / data.fps + .5 / data.fps; };
+
+const loop = () => { render(); v.requestVideoFrameCallback(loop); };
+v.requestVideoFrameCallback(loop);
+v.addEventListener('seeked', render);
+addEventListener('resize', () => { if (data) drawTimeline(); render(); });
+addEventListener('keydown', e => {
+  if (!data) return;
+  if (e.key === '.' || e.key === ',') { v.pause(); v.currentTime = Math.max(0, frameIdx(v.currentTime) + (e.key === '.' ? 1 : -1)) / data.fps + .5 / data.fps; }
+});
+</script>
+</body>
+</html>

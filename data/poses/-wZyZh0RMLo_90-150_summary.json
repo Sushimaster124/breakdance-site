@@ -1,0 +1,36 @@
+{
+  "clip": "-wZyZh0RMLo_90-150.mp4",
+  "frames": 1500,
+  "fps": 25.0,
+  "resolution": [
+    1920,
+    1080
+  ],
+  "device": "mps",
+  "runtime_s": 43.7,
+  "proc_fps": 34.3,
+  "pose_model": "rtmpose-l_simcc-body7_pt-body7_420e-384x288-3f5a1437_20230504.pth",
+  "low_conf_threshold": 0.5,
+  "turns": [
+    {
+      "dancer": "Kosto",
+      "start_frame": 0,
+      "end_frame": 697,
+      "start_s": 0.0,
+      "end_s": 27.88
+    },
+    {
+      "dancer": "Jamal",
+      "start_frame": 697,
+      "end_frame": 1500,
+      "start_s": 27.88,
+      "end_s": 60.0
+    }
+  ],
+  "no_detection_frames": 0,
+  "no_detection_pct": 0.0,
+  "low_conf_frames": 130,
+  "low_conf_pct": 8.67,
+  "bad_frames_pct": 8.67,
+  "mean_conf_detected": 0.6585
+}

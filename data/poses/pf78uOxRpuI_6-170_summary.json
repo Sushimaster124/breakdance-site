@@ -1,0 +1,64 @@
+{
+  "clip": "pf78uOxRpuI_6-170.mp4",
+  "frames": 4100,
+  "fps": 25.0,
+  "resolution": [
+    1920,
+    1080
+  ],
+  "device": "mps",
+  "runtime_s": 120.4,
+  "proc_fps": 34.05,
+  "pose_model": "rtmpose-l_simcc-body7_pt-body7_420e-384x288-3f5a1437_20230504.pth",
+  "low_conf_threshold": 0.5,
+  "turns": [
+    {
+      "dancer": "Xak",
+      "start_frame": 0,
+      "end_frame": 880,
+      "start_s": 0.0,
+      "end_s": 35.2
+    },
+    {
+      "dancer": "Hatsolo",
+      "start_frame": 880,
+      "end_frame": 1402,
+      "start_s": 35.2,
+      "end_s": 56.08
+    },
+    {
+      "dancer": "Xak",
+      "start_frame": 1402,
+      "end_frame": 2189,
+      "start_s": 56.08,
+      "end_s": 87.56
+    },
+    {
+      "dancer": "Hatsolo",
+      "start_frame": 2189,
+      "end_frame": 2532,
+      "start_s": 87.56,
+      "end_s": 101.28
+    },
+    {
+      "dancer": "Xak",
+      "start_frame": 2532,
+      "end_frame": 3438,
+      "start_s": 101.28,
+      "end_s": 137.52
+    },
+    {
+      "dancer": "Hatsolo",
+      "start_frame": 3438,
+      "end_frame": 4100,
+      "start_s": 137.52,
+      "end_s": 164.0
+    }
+  ],
+  "no_detection_frames": 0,
+  "no_detection_pct": 0.0,
+  "low_conf_frames": 181,
+  "low_conf_pct": 4.41,
+  "bad_frames_pct": 4.41,
+  "mean_conf_detected": 0.6949
+}

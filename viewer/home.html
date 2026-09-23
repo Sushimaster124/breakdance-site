@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breaking Analyzer</title>
+<style>
+  :root { --bg:#111; --panel:#181818; --fg:#f2f2f2; --muted:#a3a3a3; --line:#333; --accent:#3ddc84; --bad:#ff6b6b; --warn:#f5b942; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width:920px; margin:0 auto; padding:28px 16px 64px; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 18px; }
+  h2 { font-size:15px; font-weight:600; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin:2px 0 0; }
+  section { margin-top:40px; }
+  section:first-of-type { margin-top:0; }
+  .head { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+  input { background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; min-width:0; }
+  input::placeholder { color:#777; }
+  input:focus { outline:none; border-color:#666; }
+  button { background:var(--fg); color:#111; border:0; border-radius:6px; padding:9px 16px; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:none; color:var(--fg); border:1px solid var(--line); font-weight:400; }
+  button:disabled { opacity:.4; cursor:default; }
+  .link { background:none; border:0; padding:0; color:var(--fg); font:inherit; font-weight:400; cursor:pointer; text-decoration:underline; text-underline-offset:3px; text-decoration-color:#555; }
+  a { color:var(--fg); text-underline-offset:3px; text-decoration-color:#555; }
+  .num { font-variant-numeric:tabular-nums; }
+  button.icon { background:none; color:var(--muted); border:1px solid var(--line); border-radius:50%; width:32px; height:32px; padding:0; display:grid; place-items:center; }
+  button.icon:hover { color:var(--fg); }
+  button.icon.spin svg { animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .err { color:var(--bad); min-height:20px; margin-top:8px; }
+
+  /* usage */
+  .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .stats > div { background:var(--bg); padding:12px 14px; }
+  .stats .k { color:var(--muted); font-size:13px; }
+  .stats .v { font-size:20px; font-weight:600; margin-top:2px; }
+  .stats .d { color:var(--muted); font-size:13px; margin-top:2px; }
+  .notes { margin-top:10px; color:var(--muted); font-size:13px; }
+  .notes div { margin-top:3px; }
+  .notes b { color:var(--fg); font-weight:500; }
+  .warn { color:var(--warn); }
+
+  /* add */
+  #drop { border:1.5px dashed #555; border-radius:10px; padding:28px 20px; text-align:center; transition:border-color .15s, background .15s; }
+  #drop.over { border-color:var(--accent); background:rgba(61,220,132,.07); }
+  #drop .big { font-size:17px; font-weight:600; }
+  #drop .small { color:var(--muted); margin-top:4px; }
+  #f { display:flex; gap:8px; margin-top:12px; }
+  #url { flex:1; }
+
+  /* clip picker */
+  #pick { border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:16px; }
+  #pick .ptitle { font-weight:600; }
+  .player { position:relative; aspect-ratio:16/9; background:#000; border-radius:6px; overflow:hidden; margin-top:12px; }
+  .player iframe, .player > div { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  #noembed { display:flex; align-items:center; justify-content:center; color:var(--muted); padding:20px; text-align:center; background:#000; }
+  #noembed[hidden] { display:none; }
+  #range { position:relative; height:28px; margin-top:12px; background:var(--panel); border:1px solid var(--line); border-radius:6px; cursor:pointer; }
+  #range .sel { position:absolute; top:0; bottom:0; background:rgba(61,220,132,.28); border-left:2px solid var(--accent); border-right:2px solid var(--accent); }
+  #range .head-line { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--fg); }
+  .rlabels { display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin-top:4px; }
+  .times { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px; }
+  .times label, .names label { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
+  .times .row { display:flex; gap:8px; }
+  .times input { width:100px; }
+  .times .row button { padding:9px 12px; }
+  .names { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px; }
+  .names input { width:100%; }
+  #est { margin-top:16px; padding:12px 14px; background:var(--panel); border-radius:6px; }
+  #est .line { margin-top:2px; }
+  #est .k { color:var(--muted); display:inline-block; min-width:150px; }
+  .actions { display:flex; gap:8px; margin-top:14px; }
+
+  /* jobs */
+  .job { display:grid; grid-template-columns:128px 1fr auto; gap:14px; align-items:start; padding:14px 0; border-bottom:1px solid var(--line); }
+  .job > div { min-width:0; }
+  .job img { width:128px; aspect-ratio:16/9; object-fit:cover; border-radius:4px; background:#222; display:block; }
+  .job .t { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .job .st { margin-top:3px; }
+  .job .st.done { color:var(--accent); }
+  .job .st.bad { color:var(--bad); }
+  .job .st.off { color:var(--muted); }
+  .job .meta { color:var(--muted); font-size:13px; margin-top:3px; }
+  .job .bar { height:4px; background:var(--line); margin-top:8px; border-radius:2px; overflow:hidden; }
+  .job .fill { height:100%; background:var(--accent); transition:width .5s linear; }
+  .job .acts { display:flex; gap:14px; white-space:nowrap; padding-top:2px; }
+  .job .rm { color:var(--muted); }
+  body.static .live-only, body.static td.go button { display:none; }
+  .empty { color:var(--muted); padding:12px 0; }
+
+  /* battles */
+  #q { width:240px; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-weight:400; color:var(--muted); font-size:13px; padding:6px 12px 6px 0; border-bottom:1px solid var(--line); }
+  td { padding:8px 12px 8px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr[draggable] { cursor:grab; }
+  tr[draggable]:hover td { background:#171717; }
+  td .lose { color:var(--muted); }
+  td .win { font-weight:600; }
+  td.ev, td.dt { color:var(--muted); }
+  td.go { text-align:right; white-space:nowrap; }
+  td.go .s { color:var(--muted); }
+  #more { color:var(--muted); padding:10px 0; font-size:13px; }
+
+  @media (max-width:620px) {
+    .stats { grid-template-columns:1fr 1fr; }
+    .job { grid-template-columns:84px 1fr; }
+    .job img { width:84px; }
+    .job .acts { grid-column:2; }
+    #f { flex-direction:column; }
+    .times, .names { grid-template-columns:1fr; }
+    td.ev, th.ev { display:none; }
+    #q { width:100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Breaking Analyzer</h1>
+
+  <section class="live-only">
+    <div class="head"><h2>Usage</h2><button class="icon" id="reload" title="Refresh" aria-label="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></div>
+    <div class="stats num" id="stats"></div>
+    <div class="notes num" id="usenotes"></div>
+  </section>
+
+  <section class="live-only">
+        <div id="drop">
+      <div class="big">Drop a YouTube link</div>
+    </div>
+    <form id="f">
+      <input id="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off">
+      <button>Open</button>
+    </form>
+    <div class="err" id="err"></div>
+
+    <div id="pick" hidden>
+      <div class="ptitle" id="ptitle"></div>
+      <div class="sub" id="psub"></div>
+      <div class="player"><div id="yt"></div><div id="noembed" hidden></div></div>
+      <div id="range"><div class="sel" id="rsel"></div><div class="head-line" id="rhead"></div></div>
+      <div class="rlabels num"><span>0:00</span><span id="rdur"></span></div>
+      <div class="times">
+        <div><label for="start">Start</label><div class="row"><input id="start" class="num" placeholder="0:00"><button type="button" class="ghost" id="setStart">Set</button></div></div>
+        <div><label for="end">End</label><div class="row"><input id="end" class="num" placeholder="end"><button type="button" class="ghost" id="setEnd">Set</button></div></div>
+      </div>
+      <div class="names">
+        <div><label for="first">First</label><input id="first" placeholder="Dancer 1"></div>
+        <div><label for="second">Second</label><input id="second" placeholder="Dancer 2"></div>
+      </div>
+      <div id="est" class="num"></div>
+      <div class="actions"><button id="go">Analyze</button><button class="ghost" id="cancel">Cancel</button></div>
+      <div class="err" id="perr"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>Videos</h2></div>
+    <div id="list"></div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2 id="bcount">Battles</h2>
+      <input id="q" placeholder="Search">
+    </div>
+    <table>
+      <thead><tr><th>Battle</th><th class="ev">Event</th><th>Date</th><th></th></tr></thead>
+      <tbody id="battles"></tbody>
+    </table>
+    <div id="more"></div>
+  </section>
+</main>
+<script>
+const STATIC = true;   // true in the GitHub Pages build (src/pages.py): read-only, data from snapshot JSON
+const api = name => STATIC ? `../api/${name}.json` : `../api/${name}`;
+const $ = id => document.getElementById(id);
+if (STATIC) document.body.classList.add('static');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const STAGE = { download:'Downloading', clip:'Cutting', detect:'Detecting', track:'Tracking', pose:'Posing' };
+const STEP_NO = { download:1, clip:2, detect:3, track:4, pose:5 };
+
+const bytes = b => b == null ? '–' : b >= 1e9 ? `${(b / 1e9).toFixed(b >= 1e11 ? 0 : 1)} GB` : b >= 1e6 ? `${Math.round(b / 1e6)} MB` : b >= 1e3 ? `${Math.round(b / 1e3)} KB` : `${b} B`;
+const mb = b => (b / 1e6).toFixed(b >= 1e8 ? 0 : 1);
+const dur = s => { if (s == null) return '–'; s = Math.round(s);
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}m`;
+  if (s >= 60) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`; return `${s}s`; };
+const clock = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`; };
+function secs(s) {   // "1:30", "90", "1:02:03" -> seconds; blank -> null
+  s = s.trim(); if (!s) return null;
+  if (!/^\d+(:\d{1,2}){0,2}$/.test(s)) throw new Error(`Use m:ss`);
+  return s.split(':').reduce((a, x) => a * 60 + +x, 0);
+}
+const vidOf = url => (url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/) || [])[1];
+
+let usage = null, battles = [], battleByVid = {}, jobsByVideo = {}, currentJobs = [];
+
+/* ---------- usage ---------- */
+function renderUsage() {
+  const u = usage; if (!u) return;
+  const f = u.folders, work = f.Downloads + f.Clips + f['Pose data'] + f.Rendered, fixed = f.Models + f['Python libraries'];
+  const t = u.totals, r = u.rates, since = `last ${t.days} days`;
+  const running = currentJobs.find(j => j.status === 'running'), waiting = currentJobs.filter(j => j.status === 'queued');
+  const left = running && running.eta_s != null ? running.eta_s + waiting
+    .reduce((a, j) => a + (j.end ? j.end - (j.start || 0) : r.avg_battle_s) * r.compute_per_s, 0) : null;
+  const cells = [
+    ['Disk', bytes(work), `+${bytes(fixed)} models`],
+    ['Free', bytes(u.disk_free), ''],
+    ['Downloaded', bytes(t.downloaded_bytes), since],
+    ['Compute', dur(t.compute_s), since],
+  ];
+  $('stats').innerHTML = cells.map(([k, v, d]) => `<div><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
+  const rem = u.csv_remaining, tooBig = rem.disk_bytes > u.disk_free;
+  $('usenotes').innerHTML = [
+    running || waiting.length ? `<div><b>${running ? 1 : 0} running · ${waiting.length} waiting</b>${left != null ? ` · ${dur(left)} left` : ''}</div>` : '',
+    `<div>Per min of video: ${bytes(r.download_bytes_per_s * 60)} download · ${bytes((r.download_bytes_per_s + r.output_bytes_per_s) * 60)} disk · ${dur(r.compute_per_s * 60)}</div>`,
+    `<div>All ${rem.battles} battles: <span class="${tooBig ? 'warn' : ''}">${bytes(rem.disk_bytes)}${tooBig ? ' (over free space)' : ''}</span> · ${dur(rem.compute_s)}</div>`,
+  ].join('');
+  if (!$('pick').hidden) renderEstimate();
+}
+
+/* ---------- clip picker ---------- */
+let pick = null, player = null, ytReady = null;
+function loadYT() {
+  if (!ytReady) ytReady = new Promise(res => {
+    window.onYouTubeIframeAPIReady = res;
+    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+  });
+  return ytReady;
+}
+
+async function openPicker(url) {
+  $('err').textContent = ''; $('perr').textContent = '';
+  const vid = vidOf(url || '');
+  if (!vid) { $('err').textContent = 'Not a YouTube link'; return; }
+  const b = battleByVid[vid];
+  pick = { vid, url: `https://www.youtube.com/watch?v=${vid}`, duration: null };
+  $('pick').hidden = false;
+  $('ptitle').textContent = b ? `${b.left} vs ${b.right}` : 'YouTube video';
+  $('psub').textContent = b ? `${b.competition} · ${b.date}` : '';
+  $('start').value = ''; $('end').value = '';
+  $('first').value = b ? b.first : ''; $('second').value = b ? b.second : '';
+  $('noembed').hidden = true; $('rsel').style.width = '0';
+  renderEstimate();
+  $('pick').scrollIntoView({ behavior:'smooth', block:'start' });
+  await loadYT();
+  if (player && player.cueVideoById) { player.cueVideoById(vid); return; }
+  player = new YT.Player('yt', { videoId: vid, playerVars: { rel:0, origin: location.origin },
+    events: { onReady: syncDuration, onStateChange: syncDuration,
+      onError: () => { $('noembed').hidden = false; $('noembed').textContent = "Can't embed. Type times (m:ss)."; } } });
+}
+function syncDuration() {
+  const d = player && player.getDuration ? player.getDuration() : 0;
+  if (pick && d && d !== pick.duration) { pick.duration = d; renderEstimate(); }
+}
+function selection() {
+  const start = secs($('start').value) ?? 0, end = secs($('end').value) ?? pick.duration;
+  if (pick.duration && end > pick.duration + 1) throw new Error(`Video is ${clock(pick.duration)}`);
+  if (end != null && end <= start) throw new Error('End is before start');
+  return { start, end };
+}
+function renderEstimate() {
+  if (!pick || !usage) return;
+  const r = usage.rates, cached = usage.downloaded_videos.includes(pick.vid), D = pick.duration;
+  $('rdur').textContent = D ? clock(D) : '';
+  let sel, msg = '';
+  try { sel = selection(); } catch (e) { msg = e.message; }
+  const len = sel && sel.end != null ? sel.end - sel.start : null;
+  if (sel && D) { $('rsel').style.left = `${100 * sel.start / D}%`; $('rsel').style.width = `${100 * (sel.end - sel.start) / D}%`; }
+  $('go').disabled = !!msg;
+  $('go').textContent = 'Analyze';
+  if (msg) { $('est').innerHTML = `<span style="color:var(--bad)">${esc(msg)}</span>`; return; }
+  const whole = D || r.avg_battle_s, clipLen = len ?? whole;
+  const dl = cached ? 0 : whole * r.download_bytes_per_s;
+  const disk = dl + clipLen * r.output_bytes_per_s, proc = clipLen * r.compute_per_s;
+  const ahead = currentJobs.filter(j => j.status === 'running' || j.status === 'queued').length;
+  const warn = disk > usage.disk_free;
+  $('est').innerHTML = [`${dur(clipLen)} clip`, cached ? 'no download' : `${bytes(dl)} download`,
+    `<span class="${warn ? 'warn' : ''}">${bytes(disk)} disk</span>`, dur(proc) + (ahead ? ` (+${ahead} ahead)` : '')].join(' · ');
+}
+function setFromPlayer(which) {
+  if (!player || !player.getCurrentTime) return;
+  $(which).value = clock(player.getCurrentTime()); renderEstimate();
+}
+$('setStart').onclick = () => setFromPlayer('start');
+$('setEnd').onclick = () => setFromPlayer('end');
+['start', 'end'].forEach(id => $(id).oninput = renderEstimate);
+$('range').onclick = e => { if (player && pick && pick.duration) player.seekTo(pick.duration * e.offsetX / $('range').clientWidth, true); };
+setInterval(() => {
+  if (!pick || !player || !player.getCurrentTime || !pick.duration) return;
+  $('rhead').style.left = `${100 * player.getCurrentTime() / pick.duration}%`;
+}, 250);
+$('cancel').onclick = () => { $('pick').hidden = true; pick = null; if (player && player.pauseVideo) player.pauseVideo(); };
+
+$('go').onclick = async () => {
+  $('perr').textContent = '';
+  let sel;
+  try { sel = selection(); } catch (e) { $('perr').textContent = e.message; return; }
+  const toEnd = sel.end == null || (pick.duration && sel.end >= pick.duration - 0.5);
+  const body = { url: pick.url, start: sel.start || null, end: toEnd ? null : sel.end, first: $('first').value, second: $('second').value };
+  $('go').disabled = true;
+  try {
+    const r = await fetch('../api/jobs', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Could not start');
+    $('cancel').onclick(); $('url').value = '';
+    await refresh(); $('list').scrollIntoView({ behavior:'smooth', block:'start' });
+  } catch (e) { $('perr').textContent = e.message; }
+  finally { $('go').disabled = false; }
+};
+
+$('f').onsubmit = e => { e.preventDefault(); openPicker($('url').value.trim()); };
+const drop = $('drop');
+addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) drop.classList.remove('over'); });
+addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  const text = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+  const url = (text || '').split('\n').find(l => l && !l.startsWith('#'))?.trim();
+  if (!url) { $('err').textContent = 'No link found'; return; }
+  $('url').value = url; openPicker(url);
+});
+
+/* ---------- jobs ---------- */
+function row(j) {
+  const len = j.video_s ?? (j.end ? j.end - (j.start || 0) : null);
+  const range = `${clock(j.start || 0)}–${j.end ? clock(j.end) : 'end'}`;
+  let st, cls = '', bar = '';
+  if (j.status === 'done') { st = j.skeleton_pct != null ? `Done · ${j.skeleton_pct}% skeletonized` : 'Done'; cls = 'done'; }
+  else if (j.status === 'failed') { st = `Failed: ${esc(j.error)}`; cls = 'bad'; }
+  else if (j.status === 'queued') st = 'Waiting';
+  else if (j.status === 'canceled') { st = 'Canceled'; cls = 'off'; }
+  else {
+    const L = j.live || {};
+    const amount = j.stage === 'download' && L.total_bytes ? `${mb(L.bytes)} / ${mb(L.total_bytes)} MB${L.speed ? ` · ${mb(L.speed)} MB/s` : ''}`
+      : `${Math.round(j.progress * 100)}%`;
+    st = `${STAGE[j.stage] || 'Starting'} · ${amount}${j.eta_s != null ? ` · ${dur(j.eta_s)} left` : ''}`;
+    bar = `<div class="bar"><div class="fill" style="width:${(j.progress * 100).toFixed(1)}%"></div></div>`;
+  }
+  const elapsed = j.started && j.status === 'running' ? Date.now() / 1000 - j.started : null;
+  const compute = j.timings ? Object.values(j.timings).reduce((a, b) => a + b, 0) : null;
+  const meta = [
+    range,
+    !STATIC && j.disk_bytes ? bytes(j.disk_bytes) : null,
+    STATIC ? null : elapsed != null ? dur(elapsed) : compute ? dur(compute) : null,
+  ].filter(Boolean).join(' · ');
+  const acts = [];
+  if (j.status === 'done') {
+    acts.push(`<a href="./?clip=${encodeURIComponent(j.clip)}">Open</a>`);
+    acts.push(`<a href="../outputs/${encodeURIComponent(j.clip)}_overlay.mp4" download>Download</a>`);
+  }
+  if (!STATIC && (j.status === 'running' || j.status === 'queued')) acts.push(`<button class="link cx" data-id="${j.id}">Cancel</button>`);
+  if (!STATIC && j.status !== 'running') acts.push(`<button class="link rm" data-id="${j.id}" data-size="${j.disk_bytes || 0}">Delete</button>`);
+  return `<div class="job">
+    <img src="https://i.ytimg.com/vi/${j.video_id}/mqdefault.jpg" alt="">
+    <div><div class="t">${esc(j.title || j.url)}</div><div class="st num ${cls}">${st}</div><div class="meta num">${meta}</div>${bar}</div>
+    <div class="acts">${acts.join('')}</div>
+  </div>`;
+}
+
+let timer;
+async function refresh() {
+  clearTimeout(timer);
+  try {
+    const [jobs, u] = await Promise.all([fetch(api('jobs')).then(r => r.json()), STATIC ? null : fetch(api('usage')).then(r => r.json())]);
+    currentJobs = jobs; usage = u;
+  } catch { timer = setTimeout(refresh, 3000); return; }
+  const jobs = currentJobs;
+  $('list').innerHTML = jobs.length ? jobs.map(row).join('') : '<div class="empty">None yet</div>';
+  $('list').querySelectorAll('.rm').forEach(b => b.onclick = async () => {
+    if (!confirm(`Delete? Frees ${bytes(+b.dataset.size)}.`)) return;
+    await fetch(`../api/jobs/${b.dataset.id}`, { method:'DELETE' }); refresh();
+  });
+  $('list').querySelectorAll('.cx').forEach(b => b.onclick = async () => {
+    b.disabled = true; await fetch(`../api/jobs/${b.dataset.id}/cancel`, { method:'POST' }); refresh();
+  });
+  jobsByVideo = {};
+  for (const j of [...jobs].reverse()) jobsByVideo[j.video_id] = j;
+  renderUsage(); renderBattles();
+  if (STATIC) return;
+  timer = setTimeout(refresh, jobs.some(j => j.status === 'running' || j.status === 'queued') ? 1000 : 10000);
+}
+
+/* ---------- battles ---------- */
+const LIMIT = 100;
+function renderBattles() {
+  const q = $('q').value.trim().toLowerCase();
+  const hits = battles.filter(b => !q || `${b.left} ${b.right} ${b.competition} ${b.date}`.toLowerCase().includes(q));
+  const name = (n, b) => `<span class="${n === b.winner ? 'win' : 'lose'}">${esc(n)}</span>`;
+  $('bcount').textContent = `Battles · ${battles.length}`;
+  $('battles').innerHTML = hits.slice(0, LIMIT).map(b => {
+    const j = jobsByVideo[b.video_id];
+    const go = j && j.status === 'done' ? `<a href="./?clip=${encodeURIComponent(j.clip)}">Open</a>${STATIC ? '' : ' · '}<button class="link" data-url="${b.url}">Clip</button>`
+      : j && (j.status === 'running' || j.status === 'queued') ? `<span class="s">${j.status === 'queued' ? 'Waiting' : `${Math.round(j.progress * 100)}%`}</span>`
+      : `<button class="link" data-url="${b.url}">Clip</button>`;
+    return `<tr draggable="true" data-url="${b.url}">
+      <td>${name(b.left, b)} vs ${name(b.right, b)}</td><td class="ev">${esc(b.competition)}</td>
+      <td class="dt num">${esc(b.date)}</td><td class="go">${go}</td></tr>`;
+  }).join('');
+  $('more').textContent = hits.length > LIMIT ? `${LIMIT} of ${hits.length}` : hits.length ? '' : 'No matches';
+  $('battles').querySelectorAll('tr').forEach(tr => tr.ondragstart = e => {
+    e.dataTransfer.setData('text/uri-list', tr.dataset.url); e.dataTransfer.setData('text/plain', tr.dataset.url);
+  });
+  $('battles').querySelectorAll('button[data-url]').forEach(b => b.onclick = () => openPicker(b.dataset.url));
+}
+$('q').oninput = renderBattles;
+$('reload').onclick = async () => {
+  const b = $('reload'); b.classList.add('spin');
+  await Promise.all([refresh(), new Promise(r => setTimeout(r, 600))]);
+  b.classList.remove('spin');
+};
+const battlesLoaded = fetch(api('battles')).then(r => r.json()).then(b => { battles = b; battleByVid = Object.fromEntries(b.map(x => [x.video_id, x])); renderBattles(); });
+refresh();
+const preset = new URLSearchParams(location.search).get('v');   // home.html?v=<id> opens the clip picker
+if (preset) battlesLoaded.then(() => openPicker(`https://youtu.be/${preset}`));
+</script>
+</body>
+</html>
