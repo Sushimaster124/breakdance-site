@@ -20,7 +20,8 @@ This repo is the static site. The pose pipeline runs locally on Apple Silicon.
 
 ## Site
 
-- **Analyzer** (`viewer/home.html`): pick from 564 catalogued battles or paste a YouTube link.
+- **Analyzer** (`viewer/home.html`): when run locally, pick from 564 catalogued battles or paste a YouTube
+  link to queue a new analysis. The live demo is a read-only snapshot of two analyzed battles.
 - **Pose viewer** (`viewer/index.html`): video with a live skeleton overlay and a per-frame confidence timeline.
 
 ## Stack
